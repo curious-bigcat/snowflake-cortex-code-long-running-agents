@@ -1,0 +1,300 @@
+name: SalesAnalyticsModel
+description: Semantic model for Sales Analytics Platform enabling natural language queries on sales data
+
+tables:
+  - name: FCT_ORDERS
+    description: Fact table containing all sales orders with customer, product, and sales rep dimensions
+    base_table:
+      database: SALES_ANALYTICS_DB
+      schema: MARTS
+      table: FCT_ORDERS
+
+    dimensions:
+      # Order Identifiers
+      - name: order_id
+        synonyms:
+          - order number
+          - order identifier
+          - transaction id
+        description: Unique identifier for each order
+        expr: ORDER_ID
+        data_type: NUMBER
+
+      # Customer Dimensions
+      - name: customer_id
+        description: Unique customer identifier
+        expr: CUSTOMER_ID
+        data_type: NUMBER
+
+      - name: customer_name
+        synonyms:
+          - customer
+          - client name
+          - account name
+        description: Name of the customer
+        expr: CUSTOMER_NAME
+        data_type: VARCHAR
+
+      - name: customer_segment
+        synonyms:
+          - segment
+          - customer type
+          - account segment
+        description: Customer segment classification (Enterprise, SMB, Consumer)
+        expr: CUSTOMER_SEGMENT
+        data_type: VARCHAR
+        sample_values:
+          - Enterprise
+          - SMB
+          - Consumer
+
+      - name: industry
+        synonyms:
+          - vertical
+          - sector
+          - customer industry
+        description: Industry vertical of the customer
+        expr: INDUSTRY
+        data_type: VARCHAR
+
+      # Product Dimensions
+      - name: product_id
+        description: Unique product identifier
+        expr: PRODUCT_ID
+        data_type: NUMBER
+
+      - name: product_name
+        synonyms:
+          - product
+          - item name
+          - sku name
+        description: Name of the product
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+
+      - name: category
+        synonyms:
+          - product category
+          - product type
+          - department
+        description: Product category (e.g., Electronics, Clothing, etc.)
+        expr: CATEGORY
+        data_type: VARCHAR
+
+      - name: subcategory
+        synonyms:
+          - product subcategory
+          - sub-category
+        description: Product subcategory for finer classification
+        expr: SUBCATEGORY
+        data_type: VARCHAR
+
+      # Sales Rep Dimensions
+      - name: sales_rep_id
+        description: Unique sales representative identifier
+        expr: SALES_REP_ID
+        data_type: NUMBER
+
+      - name: rep_name
+        synonyms:
+          - sales rep
+          - salesperson
+          - account executive
+          - representative
+        description: Name of the sales representative
+        expr: REP_NAME
+        data_type: VARCHAR
+
+      - name: team
+        synonyms:
+          - sales team
+          - rep team
+        description: Sales team the representative belongs to
+        expr: TEAM
+        data_type: VARCHAR
+
+      - name: rep_region
+        synonyms:
+          - sales region
+          - territory
+        description: Region assigned to the sales representative
+        expr: REP_REGION
+        data_type: VARCHAR
+        sample_values:
+          - North
+          - South
+          - East
+          - West
+
+      # Geographic Dimension
+      - name: region
+        synonyms:
+          - order region
+          - geography
+          - area
+          - location
+        description: Geographic region where the order was placed
+        expr: ORDER_REGION
+        data_type: VARCHAR
+        sample_values:
+          - North
+          - South
+          - East
+          - West
+
+    time_dimensions:
+      - name: order_date
+        synonyms:
+          - date
+          - sale date
+          - transaction date
+        description: Date when the order was placed
+        expr: ORDER_DATE
+        data_type: DATE
+
+      - name: order_week
+        synonyms:
+          - week
+          - sales week
+        description: Week of the order (truncated to week start)
+        expr: ORDER_WEEK
+        data_type: DATE
+
+      - name: order_month
+        synonyms:
+          - month
+          - sales month
+        description: Month of the order (truncated to month start)
+        expr: ORDER_MONTH
+        data_type: DATE
+
+      - name: order_quarter
+        synonyms:
+          - quarter
+          - sales quarter
+        description: Quarter of the order (truncated to quarter start)
+        expr: ORDER_QUARTER
+        data_type: DATE
+
+      - name: order_year
+        synonyms:
+          - year
+          - sales year
+        description: Year of the order
+        expr: ORDER_YEAR
+        data_type: NUMBER
+
+    measures:
+      # Revenue Measures
+      - name: revenue
+        synonyms:
+          - sales
+          - net sales
+          - net revenue
+          - total revenue
+          - total sales
+        description: Net revenue after discounts (QUANTITY * UNIT_PRICE * (1 - DISCOUNT_PCT))
+        expr: NET_AMOUNT
+        data_type: NUMBER
+        default_aggregation: sum
+
+      - name: gross_revenue
+        synonyms:
+          - gross sales
+          - total gross
+        description: Gross revenue before discounts (QUANTITY * UNIT_PRICE)
+        expr: GROSS_AMOUNT
+        data_type: NUMBER
+        default_aggregation: sum
+
+      - name: discount_amount
+        synonyms:
+          - discounts
+          - total discounts
+        description: Total discount amount given
+        expr: DISCOUNT_AMOUNT
+        data_type: NUMBER
+        default_aggregation: sum
+
+      # Volume Measures
+      - name: order_count
+        synonyms:
+          - number of orders
+          - total orders
+          - orders
+          - transactions
+        description: Count of orders
+        expr: ORDER_ID
+        data_type: NUMBER
+        default_aggregation: count
+
+      - name: units_sold
+        synonyms:
+          - quantity
+          - items sold
+          - units
+          - volume
+        description: Total quantity of items sold
+        expr: QUANTITY
+        data_type: NUMBER
+        default_aggregation: sum
+
+      # Pricing Measures
+      - name: unit_price
+        synonyms:
+          - price
+          - selling price
+        description: Unit price of the product sold
+        expr: UNIT_PRICE
+        data_type: NUMBER
+        default_aggregation: avg
+
+      - name: list_price
+        synonyms:
+          - msrp
+          - retail price
+        description: List price of the product
+        expr: LIST_PRICE
+        data_type: NUMBER
+        default_aggregation: avg
+
+      - name: discount_percent
+        synonyms:
+          - discount rate
+          - discount %
+          - discount pct
+        description: Discount percentage applied to the order
+        expr: DISCOUNT_PCT
+        data_type: NUMBER
+        default_aggregation: avg
+
+      # Calculated Measures
+      - name: avg_order_value
+        synonyms:
+          - aov
+          - average order
+          - average transaction
+        description: Average order value (revenue per order)
+        expr: NET_AMOUNT
+        data_type: NUMBER
+        default_aggregation: avg
+
+      - name: customer_count
+        synonyms:
+          - unique customers
+          - distinct customers
+          - number of customers
+        description: Count of unique customers
+        expr: CUSTOMER_ID
+        data_type: NUMBER
+        default_aggregation: count_distinct
+
+      - name: product_count
+        synonyms:
+          - unique products
+          - distinct products
+          - number of products
+        description: Count of unique products sold
+        expr: PRODUCT_ID
+        data_type: NUMBER
+        default_aggregation: count_distinct
