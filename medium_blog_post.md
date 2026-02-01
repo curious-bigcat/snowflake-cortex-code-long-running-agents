@@ -1,612 +1,454 @@
-# Building Complex Data Platforms with AI: The Long-Running Agent Pattern for Snowflake
+# Adopting Anthropic's Long-Running Agents Pattern with Snowflake Cortex Code CLI
 
-## How I Built an 80-Feature Sales Analytics Platform Across 10 Sessions Using Cortex Code CLI
+## A Practical Guide to Multi-Session AI Development for Complex Projects
 
-*A practical guide to breaking through AI context limitations and delivering production-grade data solutions*
-
----
-
-![Header Image Placeholder](https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200)
+*How to leverage Anthropic's agentic patterns through Snowflake's AI-powered CLI to build production systems that span multiple sessions*
 
 ---
 
-Have you ever started an ambitious project with an AI coding assistant, only to hit a wall when the conversation got too long? You're deep into building something complex, the AI forgets what you discussed earlier, and suddenly you're explaining the same context over and over again.
+## Introduction: The Evolution of AI Agents
 
-I recently faced this exact challenge while building a comprehensive Sales Analytics Platform on Snowflake. The project required 80 distinct features across 9 phases—far too large for any single AI session. Instead of fighting the limitations, I developed a pattern that turned them into a strength.
+Anthropic has been at the forefront of developing patterns for effective AI agent design. One of the most powerful concepts to emerge is the **Long-Running Agents pattern**—a methodology for breaking through the fundamental limitation of AI context windows to enable complex, multi-session projects.
 
-**The result?** A complete, production-ready analytics platform built across 10 sessions with full context preservation, zero lost work, and a reusable pattern for any complex project.
+Snowflake's **Cortex Code CLI** provides an ideal platform for implementing this pattern, combining Anthropic's Claude model with native Snowflake connectivity, file system access, and shell command execution. Together, they enable a new paradigm for AI-assisted software development.
 
-In this article, I'll share exactly how I did it using **Snowflake's Cortex Code CLI** and what I call the **Long-Running Agent Pattern**.
-
----
-
-## The Problem: AI Context Windows Have Limits
-
-Modern AI coding assistants are incredibly powerful. They can write code, debug issues, explain complex systems, and even architect solutions. But they all share one fundamental limitation: **context windows**.
-
-Every AI model has a maximum amount of information it can "remember" in a single conversation—typically measured in tokens (roughly 4 characters per token). Once you exceed this limit, older context gets pushed out, and the AI loses track of:
-
-- Previous decisions you made together
-- Code it wrote earlier in the session
-- The overall architecture and patterns
-- Why certain choices were made
-
-For small projects, this isn't a problem. But for anything substantial—a data warehouse, a full-stack application, a complex ETL pipeline—you'll hit this wall fast.
-
-### What Happens Without a Solution
-
-Here's what typically happens when developers try to build large projects with AI assistants:
-
-1. **Session 1**: Great progress! Built the foundation, feeling optimistic.
-2. **Session 2**: Wait, why doesn't the AI remember our architecture decisions?
-3. **Session 3**: Spent 30 minutes re-explaining context before any real work.
-4. **Session 4**: The AI suggested something that contradicts our earlier approach.
-5. **Session 5**: Gave up and did it manually.
-
-Sound familiar?
+This article explores:
+- What Long-Running Agents are and why Anthropic developed this pattern
+- How Cortex Code CLI implements agentic capabilities
+- The Plan Mode and Execution Mode workflow
+- Practical adoption strategies for your projects
 
 ---
 
-## The Solution: Long-Running Agent Pattern
+## Part 1: Understanding Anthropic's Long-Running Agents Pattern
 
-The Long-Running Agent Pattern solves this by **externalizing context to files** that persist between sessions. Instead of relying on the AI's memory, you create structured documents that capture:
+### The Context Window Challenge
 
-- Every feature to be built (with pass/fail status)
-- Session history (what was done, what's next)
-- Current system state (objects created, validations passed)
-- Known issues and blockers
+Every large language model operates within a **context window**—the maximum amount of text it can process in a single conversation. For Claude, this is substantial (200K+ tokens), but for complex projects, it's still a limitation.
 
-Each session, the AI reads these files to restore full context, then updates them before ending. The result is **seamless continuity across unlimited sessions**.
+When building software, context accumulates rapidly:
+- Requirements and specifications
+- Code already written
+- Debugging conversations
+- Architecture decisions
+- Test results and validations
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  SESSION 1                                                       │
-│  • Read specification                                            │
-│  • Generate feature list (80 features)                           │
-│  • Create progress tracking                                      │
-│  • Build foundation                                              │
-│  • Update progress files ─────────────────┐                      │
-└─────────────────────────────────────────────┼─────────────────────┘
-                                              │
-                    ┌─────────────────────────▼─────────────────────┐
-                    │  feature_list.json    cortex-progress.md     │
-                    │  (Persistent State)                          │
-                    └─────────────────────────┬─────────────────────┘
-                                              │
-┌─────────────────────────────────────────────┼─────────────────────┐
-│  SESSION 2                                  │                     │
-│  • Read progress files ◄────────────────────┘                     │
-│  • Validate existing work                                         │
-│  • Implement next feature                                         │
-│  • Test thoroughly                                                │
-│  • Update progress files ─────────────────┐                       │
-└─────────────────────────────────────────────┼─────────────────────┘
-                                              │
-                                              ▼
-                                    (Repeat until done)
-```
+Once context is exhausted, the model loses access to earlier information. Traditional approaches treat this as a hard boundary, limiting AI assistance to small, self-contained tasks.
+
+### Anthropic's Solution: Externalized State
+
+Anthropic's Long-Running Agents pattern addresses this through **externalized state management**. Instead of relying on the model's context window as the source of truth, the pattern prescribes:
+
+1. **Persistent artifacts** that capture project state
+2. **Structured progress tracking** across sessions
+3. **Clear session protocols** for context restoration
+4. **Atomic task completion** to prevent partial states
+
+The key insight is that **the context window is temporary, but files are permanent**. By systematically writing state to files, an agent can maintain continuity across unlimited sessions.
+
+### Core Principles from Anthropic's Research
+
+The pattern embodies several principles from Anthropic's work on AI agents:
+
+| Principle | Implementation |
+|-----------|----------------|
+| **Explicit over implicit** | All decisions documented in files |
+| **Atomic operations** | One feature completed before starting next |
+| **Verification loops** | Test before marking complete |
+| **Graceful degradation** | Session can end at any point without data loss |
+| **Human oversight** | Plan Mode enables approval before execution |
 
 ---
 
-## Enter Cortex Code CLI
+## Part 2: Cortex Code CLI - Anthropic's Claude for Snowflake
 
-Before diving deeper into the pattern, let me introduce the tool that makes this possible: **Cortex Code CLI**.
+### What is Cortex Code CLI?
 
-Cortex Code CLI is Snowflake's AI-powered command-line interface for software development. Think of it as having a senior developer pair-programming with you who can:
-
-- **Execute SQL** directly against Snowflake
-- **Read and write files** in your project
-- **Run shell commands** (git, npm, python, etc.)
-- **Search the web** for documentation
-- **Orchestrate complex workflows** combining all of the above
-
-### Basic Usage
+Cortex Code CLI is Snowflake's AI-powered command-line interface, built on **Anthropic's Claude** model. It's designed for software development workflows with deep integration into both local development environments and Snowflake's data platform.
 
 ```bash
-# Start Cortex Code CLI
+# Start an interactive session
 cortex
 
-# Now you're in an interactive session
-> Create a Snowflake table for storing customer orders
-> Fix the bug in my Python script at line 45
-> Explain what this SQL query does
+# You're now conversing with Claude, enhanced with tools
+> Help me build a data pipeline for customer analytics
 ```
 
-What makes Cortex Code CLI particularly powerful for long-running projects is its **Plan Mode** and **Execution Mode**—two complementary ways of working that map perfectly to the Long-Running Agent Pattern.
+### Agentic Capabilities
+
+What makes Cortex Code CLI an **agent** rather than just a chatbot is its ability to take actions:
+
+| Capability | Description |
+|------------|-------------|
+| **SQL Execution** | Run queries directly against Snowflake |
+| **File Operations** | Read, write, and edit files in your project |
+| **Shell Commands** | Execute git, npm, python, and other CLI tools |
+| **Web Access** | Fetch documentation and search for information |
+| **Multi-step Reasoning** | Chain operations to accomplish complex goals |
+
+These tools transform Claude from a conversational assistant into an agent that can **actually build things**.
+
+### The Agent Loop
+
+Cortex Code CLI implements what Anthropic calls the "agent loop":
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   User Request ──▶ Claude Reasoning ──▶ Tool Selection     │
+│                           │                    │            │
+│                           ▼                    ▼            │
+│                    Tool Execution ◀──── Tool Results       │
+│                           │                                 │
+│                           ▼                                 │
+│                    Continue or Respond                      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The model observes its environment, reasons about the next action, executes a tool, observes the result, and continues until the task is complete.
 
 ---
 
-## Plan Mode vs Execution Mode
+## Part 3: Plan Mode vs Execution Mode
 
-### Plan Mode: Think Before You Build
+Cortex Code CLI implements a critical concept for responsible AI agents: **separation of planning and execution**.
 
-Plan Mode is for **designing before implementing**. When you enter Plan Mode, Cortex Code CLI:
+### Plan Mode: Think Before Acting
 
-1. Explores your codebase and requirements
-2. Identifies existing patterns and constraints
-3. Drafts a step-by-step implementation plan
-4. Presents the plan for your approval
-5. Waits for feedback before writing any code
+Plan Mode is entered with the `/plan` command. In this mode, the agent:
 
-**When to use Plan Mode:**
-- Starting a new project or major phase
-- Complex features requiring architectural decisions
-- When multiple valid approaches exist
-- When you want to validate thinking before committing
+1. **Explores** the codebase and requirements
+2. **Analyzes** existing patterns and constraints  
+3. **Designs** a step-by-step implementation approach
+4. **Presents** the plan for human approval
+5. **Waits** for feedback before writing any code
 
-**How to enter Plan Mode:**
 ```bash
 > /plan
-> Read the project specification and create an implementation plan 
-> for the data warehouse layer
+> I want to add authentication to my application
+
+# Claude will:
+# - Read your existing code
+# - Research authentication patterns
+# - Propose an implementation approach
+# - Ask for your approval before proceeding
 ```
 
-### Execution Mode: Build What Was Planned
+**Why Plan Mode matters:**
+- Prevents the AI from charging ahead with wrong assumptions
+- Enables human oversight of architectural decisions
+- Reduces costly rework from misunderstood requirements
+- Creates documentation of design rationale
 
-Execution Mode is for **implementing approved plans**. The AI:
+### Execution Mode: Implement Approved Plans
 
-1. Reads progress files to understand current state
-2. Identifies the next incomplete feature
-3. Writes code, SQL, and configurations
-4. Tests and validates the implementation
-5. Updates progress files
+Once a plan is approved, Execution Mode focuses on implementation:
 
-**When to use Execution Mode:**
-- After a plan is approved
-- For well-defined, scoped tasks
-- When continuing previous work
-
-**How to use Execution Mode:**
 ```bash
 > resume
+
+# Claude will:
+# - Read progress files to understand current state
+# - Identify the next incomplete task
+# - Implement with verification
+# - Update progress tracking
 ```
 
-Yes, it's that simple. Just say "resume" and Cortex Code CLI reads your progress files and continues where you left off.
+The `resume` command is particularly powerful for long-running projects. It tells the agent to read externalized state and continue where it left off.
 
-### The Workflow in Practice
+### The Workflow
 
 ```
-┌──────────────────┐     ┌───────────────────┐     ┌──────────────────┐
-│   PLAN MODE      │     │   YOUR REVIEW     │     │ EXECUTION MODE   │
-│                  │     │                   │     │                  │
-│ "Here's my plan  │────▶│ "Looks good, but  │────▶│ "Implementing    │
-│  to build the    │     │  let's also add   │     │  feature #23:    │
-│  fact table..."  │     │  error handling"  │     │  Creating view..." │
-└──────────────────┘     └───────────────────┘     └──────────────────┘
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│             │         │             │         │             │
+│  /plan      │────────▶│  Human      │────────▶│  resume     │
+│  (Design)   │         │  Review     │         │  (Build)    │
+│             │         │             │         │             │
+└─────────────┘         └─────────────┘         └─────────────┘
+      │                                               │
+      │                                               │
+      ▼                                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│              Externalized State (Files)                     │
+│                                                             │
+│   • specification.md    - Requirements & rules              │
+│   • feature_list.json   - Progress tracking                 │
+│   • cortex-progress.md  - Session history                   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
-
-This separation ensures you're always in control. The AI proposes, you approve, then it executes.
 
 ---
 
-## The Three Essential Files
+## Part 4: Implementing the Long-Running Agents Pattern
 
-The Long-Running Agent Pattern requires three files that work together:
+### The Three Essential Artifacts
 
-### 1. Specification Document (`*_platform.md`)
+To adopt Anthropic's pattern with Cortex Code CLI, you need three files:
 
-This is your project's "constitution"—the source of truth for requirements, architecture, and the rules the AI must follow.
+#### 1. Specification Document
 
-**Key sections:**
-- How to execute the project (instructions for the AI)
-- Long-running agent pattern rules
-- Business requirements
-- Technical requirements
-- Feature breakdown by phase
-- Validation checkpoints
-- Success criteria
+This is your project's constitution—the persistent source of truth that survives across all sessions.
 
-**Example excerpt:**
 ```markdown
-# Sales Analytics Platform - Specification
+# [Project Name] - Long-Running Agent Specification
 
-## Critical Rules
+## Execution Protocol
 
-1. **ONE FEATURE AT A TIME** - Never implement multiple features at once
-2. **TEST EVERYTHING** - Features aren't done until verified
-3. **DOCUMENT THOROUGHLY** - Next session has NO memory
-4. **NEVER BREAK EXISTING** - Validate before adding new
-5. **LEAVE CLEAN STATE** - No half-implemented code
+### First Session
+/plan
+Read @[this_file].md and execute this long-running project
+
+### Subsequent Sessions
+resume
+
+## Agent Rules
+1. ONE TASK AT A TIME - Complete before starting next
+2. VERIFY EVERYTHING - Test before marking done
+3. UPDATE IMMEDIATELY - Never batch progress updates
+4. PRESERVE STATE - Files are the source of truth
+5. DOCUMENT DECISIONS - Future sessions need context
+
+## Project Requirements
+[Your specific requirements here]
 
 ## Feature Breakdown
-
-### Phase 1: Infrastructure (Features 1-10)
-- Create database
-- Create schemas (RAW, STAGING, MARTS)
-- Create warehouse
-- Verify connectivity
-
-### Phase 2: Data Layer (Features 11-20)
-...
+[Numbered list of all features to build]
 ```
 
-### 2. Feature List (`feature_list.json`)
+#### 2. Feature List (JSON)
 
-This JSON file tracks every feature with its completion status. It's generated in Session 1 and updated throughout the project.
+Machine-readable progress tracking:
 
 ```json
 {
-  "project": "Sales Analytics Platform",
-  "total_features": 80,
+  "project": "Project Name",
+  "total_features": 50,
   "features": [
     {
       "id": 1,
-      "phase": "infrastructure",
-      "priority": 1,
-      "title": "Create database SALES_ANALYTICS_DB",
+      "title": "Feature description",
       "passes": true,
       "tested_at": "2024-01-15T10:30:00Z",
-      "notes": "Created successfully"
-    },
-    {
-      "id": 2,
-      "phase": "infrastructure",
-      "priority": 1,
-      "title": "Create RAW schema",
-      "passes": true,
-      "tested_at": "2024-01-15T10:31:00Z",
-      "notes": ""
-    },
-    {
-      "id": 3,
-      "phase": "infrastructure",
-      "priority": 2,
-      "title": "Create semantic model stage",
-      "passes": false,
-      "tested_at": null,
-      "notes": ""
+      "notes": "Implementation details"
     }
   ]
 }
 ```
 
-**Key fields:**
-- `priority`: 1 = must have, 2 = nice to have
-- `passes`: Only `true` after successful testing
-- `notes`: Implementation details for future reference
+#### 3. Progress Log (Markdown)
 
-### 3. Progress Log (`cortex-progress.md`)
-
-This Markdown file provides human-readable session history and current state.
+Human-readable session history:
 
 ```markdown
-# Sales Analytics Platform - Progress Log
+# Progress Log
 
-## Quick Status
-- **Total Features**: 80
-- **Completed**: 45
-- **Remaining**: 35
-- **Last Updated**: 2024-01-20T15:30:00Z
+## Current Status
+- Completed: 25/50 features
+- Current Phase: Phase 3
 
 ## Session History
 
-### Session 5 - 2024-01-20
-- **Type**: Mart Layer Implementation
-- **Features Completed**: #31, #32, #33
-- **Objects Created**: 
-  - DYNAMIC TABLE: MARTS.FCT_ORDERS
-  - DYNAMIC TABLE: MARTS.DAILY_SALES
-- **Issues**: None
-- **Next**: Implement feature #34 (SALES_BY_REGION table)
-
-### Session 4 - 2024-01-19
-- **Type**: Staging Layer
-- **Features Completed**: #21, #22, #23, #24
-...
-
-## Current Snowflake Objects
-
-| Type | Name | Schema | Status |
-|------|------|--------|--------|
-| DATABASE | SALES_ANALYTICS_DB | - | ✓ |
-| SCHEMA | RAW | SALES_ANALYTICS_DB | ✓ |
-| SCHEMA | STAGING | SALES_ANALYTICS_DB | ✓ |
-| TABLE | ORDERS | RAW | ✓ (100K rows) |
-| VIEW | STG_ORDERS | STAGING | ✓ |
-| DYNAMIC TABLE | FCT_ORDERS | MARTS | ✓ |
+### Session 4 - 2024-01-18
+- Completed: Features #20-25
+- Created: API endpoints
+- Next: Frontend integration
 ```
 
----
+### Session Protocol
 
-## Real-World Example: Building a Sales Analytics Platform
-
-Let me walk you through how I actually used this pattern to build a complete Sales Analytics Platform on Snowflake.
-
-### The Project Scope
-
-**Goal:** Build a self-service analytics platform for sales leaders with:
-- Snowflake data warehouse (RAW → STAGING → MARTS)
-- Dynamic Tables for real-time aggregation
-- Semantic model for natural language queries (Cortex Analyst)
-- Interactive Streamlit dashboard
-
-**Scale:**
-- 80 features across 9 phases
-- 100,000 orders, 10,000 customers, 500 products
-- 6 dashboard pages
-- ~$394M in sample revenue data
-
-### Session-by-Session Breakdown
-
-#### Session 1: Foundation
-```
-Started: cortex
-Command: /plan Read @sales_analytics_platform.md and execute this project
-
-Results:
-- Generated feature_list.json (80 features)
-- Created cortex-progress.md
-- Built database, schemas, warehouse
-- Features completed: #1-#7
-```
-
-#### Sessions 2-3: Raw Data Layer
-```
-Command: resume
-
-Results:
-- Created 4 raw tables (ORDERS, CUSTOMERS, PRODUCTS, SALES_REPS)
-- Generated 100K+ rows of realistic sample data
-- Features completed: #11-#20
-```
-
-#### Sessions 4-5: Staging & Marts
-```
-Command: resume
-
-Results:
-- Created staging views with data quality flags
-- Built FCT_ORDERS Dynamic Table joining all dimensions
-- Created 5 aggregation Dynamic Tables
-- All with 5-minute target lag
-- Features completed: #21-#50
-```
-
-#### Session 6: Semantic Model
-```
-Command: resume
-
-Results:
-- Created sales_model.yaml (301 lines)
-- Defined 15 dimensions, 12 measures, 5 time dimensions
-- Tested with Cortex Analyst queries
-- Features completed: #51-#60
-```
-
-#### Sessions 7-8: Streamlit Dashboard
-```
-Command: resume
-
-Results:
-- Built 6-page interactive dashboard
-- Executive Dashboard, Regional Analysis, Product Analysis
-- Sales Rep Leaderboard, Customer Insights, Cortex Analyst
-- Added error handling, loading states, caching
-- Features completed: #61-#77
-```
-
-#### Sessions 9-10: Polish & Bug Fixes
-```
-Command: resume
-
-Results:
-- Added drill-down capabilities
-- Fixed SQL column naming issues
-- Added documentation section
-- Features completed: #78-#80 (partial)
-
-Final status: 72/80 features (90%)
-All Priority 1 features: 100% complete
-```
-
-### What Made This Work
-
-1. **Clear specification upfront**: Every requirement documented before starting
-2. **Strict one-feature-at-a-time rule**: Prevented half-done work
-3. **Immediate progress updates**: Never lost track of state
-4. **Validation at phase boundaries**: Caught issues early
-5. **Priority system**: Delivered working product before enhancements
-
----
-
-## How to Implement This Pattern in Your Projects
-
-### Step 1: Create Your Specification Document
-
-Start with a comprehensive specification that includes:
-
-```markdown
-# [Your Project] - Long-Running Project Specification
-
-## How to Execute This Project
-
-### Starting (First Session)
-/plan
-Read @[filename].md and execute this long-running project
-
-### Continuing (Subsequent Sessions)
-resume
-
----
-
-# PART 1: LONG-RUNNING AGENT PATTERN
-
-## Critical Rules
-1. ONE FEATURE AT A TIME
-2. TEST EVERYTHING
-3. DOCUMENT THOROUGHLY
-4. NEVER BREAK EXISTING
-5. LEAVE CLEAN STATE
-
-## Required Artifacts
-- feature_list.json
-- cortex-progress.md
-
----
-
-# PART 2: PROJECT REQUIREMENTS
-
-## Business Context
-[What are you building and why?]
-
-## Functional Requirements
-[What must it do?]
-
-## Technical Requirements
-[How should it be built?]
-
-## Feature Breakdown
-[50-80 features organized by phase]
-
-## Validation Checkpoints
-[How to verify each phase works]
-
-## Success Criteria
-[Definition of done]
-```
-
-### Step 2: Start Your First Session
-
+**Starting a new project:**
 ```bash
 cortex
-
 > /plan
-> Read @my_project_platform.md and execute this long-running project 
-> following the agent pattern defined in the document.
+> Read @my_project.md and execute this long-running project 
+> following the agent pattern defined in the document
 ```
 
-The AI will:
-1. Analyze your specification
-2. Generate `feature_list.json` with all features
+The agent will:
+1. Parse your specification
+2. Generate `feature_list.json`
 3. Create `cortex-progress.md`
-4. Begin implementing foundational features
+4. Begin implementing features
+5. Update progress after each completion
 
-### Step 3: Continue in Subsequent Sessions
-
+**Continuing an existing project:**
 ```bash
 cortex
-
 > resume
 ```
 
-That's it. The AI reads your progress files, validates existing work, and continues with the next incomplete feature.
-
-### Step 4: Handle Edge Cases
-
-**If context runs out mid-session:**
-- Progress files are updated immediately
-- Next session continues seamlessly
-
-**If something breaks:**
-- Set `passes: false` in feature_list.json
-- Document the issue in notes
-- Next session will fix it
-
-**If requirements change:**
-- Update the specification document
-- Add new features to feature_list.json
-- Continue with normal flow
+The agent will:
+1. Read `feature_list.json` and `cortex-progress.md`
+2. Identify current state and next task
+3. Validate existing work still functions
+4. Continue implementation
+5. Update progress files
 
 ---
 
-## Best Practices I Learned
+## Part 5: Why This Pattern Works
 
-### Do This
+### Alignment with Anthropic's Agent Design Principles
 
-| Practice | Why It Works |
-|----------|--------------|
-| ✅ Test before marking complete | Prevents false progress |
-| ✅ Update progress immediately | Never lose state |
-| ✅ Use P1/P2 priorities | Ship MVP, then enhance |
-| ✅ Include validation queries | Catch regressions |
-| ✅ Document blockers | Future sessions can address |
+The Long-Running Agents pattern aligns with several key principles from Anthropic's research:
 
-### Avoid This
+**1. Transparency**
+All decisions, progress, and state are written to files. There's no hidden state in the model's "memory"—everything is inspectable.
 
-| Anti-Pattern | Why It Fails |
-|--------------|--------------|
-| ❌ Multiple features at once | Increases error risk |
-| ❌ Skipping tests | Creates hidden debt |
-| ❌ Batching progress updates | Risks losing work |
-| ❌ Leaving broken state | Blocks next session |
-| ❌ Deleting features | Loses audit trail |
+**2. Human Control**
+Plan Mode ensures humans approve major decisions. The agent proposes, the human disposes.
 
----
+**3. Graceful Failure**
+If a session ends unexpectedly, progress files capture the last known good state. Nothing is lost.
 
-## The Bigger Picture
+**4. Bounded Autonomy**
+The agent operates within clear constraints defined in the specification. It knows what it should and shouldn't do.
 
-The Long-Running Agent Pattern isn't just about building one project—it's about **changing how we work with AI**.
+### Comparison to Traditional Approaches
 
-Instead of fighting context limitations, we embrace them. Instead of hoping the AI remembers, we ensure it has what it needs. Instead of one heroic session, we make sustainable progress.
-
-This pattern works because it mirrors how humans actually work on complex projects:
-- We take notes
-- We track progress
-- We validate our work
-- We document for teammates (including future selves)
-
-The AI becomes a true collaborator, not a tool you have to constantly re-educate.
+| Aspect | Traditional AI Chat | Long-Running Agents |
+|--------|---------------------|---------------------|
+| Context | Limited to session | Unlimited via files |
+| State | Lost on session end | Persisted permanently |
+| Progress | Manual tracking | Automatic tracking |
+| Oversight | Post-hoc review | Plan Mode approval |
+| Complexity | Small tasks only | Arbitrarily complex |
 
 ---
 
-## Try It Yourself
+## Part 6: Practical Example - Sales Analytics Platform
 
-I've open-sourced the complete Sales Analytics Platform as a reference implementation:
+To illustrate the pattern in practice, I built a complete Sales Analytics Platform on Snowflake across 10 sessions.
+
+### Project Scope
+- 80 features across 9 phases
+- Snowflake data warehouse (RAW → STAGING → MARTS)
+- Dynamic Tables for real-time aggregation
+- Semantic model for Cortex Analyst
+- Interactive Streamlit dashboard
+
+### How the Pattern Enabled This
+
+**Without the pattern:** This project would require maintaining context about:
+- Database schema decisions from Session 1
+- Data model choices from Session 3
+- API patterns established in Session 5
+- ...all available in Session 10
+
+Impossible with a traditional context window.
+
+**With the pattern:** Each session reads progress files and has complete context:
+
+```
+Session 10:
+> resume
+
+Claude reads:
+- feature_list.json (72/80 complete)
+- cortex-progress.md (full history)
+- Validates: FCT_ORDERS exists with 100K rows
+- Continues: Feature #73 - Dashboard drill-down
+```
+
+### Results
+
+| Metric | Value |
+|--------|-------|
+| Total Sessions | 10 |
+| Features Completed | 72/80 (90%) |
+| Priority 1 Features | 100% |
+| Context Lost | 0% |
+| Rework Required | Minimal |
+
+The complete implementation is available on GitHub as a reference for adopting this pattern.
+
+---
+
+## Part 7: Adopting the Pattern for Your Projects
+
+### Step 1: Define Your Specification
+
+Create a comprehensive specification document that includes:
+- Execution protocol (how to start/continue)
+- Agent rules (constraints and guidelines)
+- Feature breakdown (everything to build)
+- Validation criteria (how to verify)
+
+### Step 2: Start with Plan Mode
+
+```bash
+cortex
+> /plan
+> Read @specification.md and execute this project
+```
+
+Let the agent generate the initial feature list and progress tracking.
+
+### Step 3: Iterate with Resume
+
+```bash
+cortex
+> resume
+```
+
+Each session picks up where the last left off. The agent maintains continuity automatically.
+
+### Step 4: Review and Adjust
+
+- Check `feature_list.json` for progress
+- Review `cortex-progress.md` for history
+- Update specification if requirements change
+- Add features to the list as needed
+
+### Best Practices
+
+| Do | Don't |
+|----|-------|
+| ✅ Keep specification updated | ❌ Let it drift from reality |
+| ✅ Verify before marking complete | ❌ Assume tests passed |
+| ✅ Document blockers immediately | ❌ Leave issues undocumented |
+| ✅ Use priorities (P1/P2) | ❌ Treat all features equally |
+| ✅ End sessions cleanly | ❌ Stop mid-feature |
+
+---
+
+## Conclusion: The Future of AI-Assisted Development
+
+Anthropic's Long-Running Agents pattern represents a significant evolution in how we work with AI. By externalizing state to files and implementing clear protocols for session continuity, we can:
+
+- **Build arbitrarily complex systems** with AI assistance
+- **Maintain perfect context** across unlimited sessions
+- **Preserve human oversight** through Plan Mode
+- **Create auditable trails** of all decisions
+
+Snowflake's Cortex Code CLI provides an excellent platform for adopting this pattern, combining Claude's reasoning capabilities with practical tools for software development.
+
+The era of AI being limited to small, isolated tasks is ending. With the right patterns and tools, AI agents can be true partners in building production systems.
+
+---
+
+## Resources
 
 **GitHub Repository:** [snowflake-cortex-code-long-running-agents](https://github.com/curious-bigcat/snowflake-cortex-code-long-running-agents)
 
-**What's Included:**
-- Complete specification document (template for your projects)
-- Feature list with 80 tracked features
-- Progress log showing 10 sessions of work
-- All Snowflake SQL (DDL/DML)
-- Semantic model for Cortex Analyst
-- Full Streamlit application
+Contains:
+- Complete specification template
+- Feature list and progress tracking examples
+- Reference implementation (Sales Analytics Platform)
+- All SQL, Python, and configuration files
 
-**To get started:**
-```bash
-git clone https://github.com/curious-bigcat/snowflake-cortex-code-long-running-agents.git
-cd snowflake-cortex-code-long-running-agents
-
-# Use as a template
-cp sales_analytics_platform.md my_project_platform.md
-
-# Start building
-cortex
-> /plan
-> Read @my_project_platform.md and execute this long-running project
-```
+**Further Reading:**
+- [Anthropic's Research on AI Agents](https://www.anthropic.com)
+- [Snowflake Cortex Documentation](https://docs.snowflake.com/en/user-guide/snowflake-cortex)
+- [Claude Model Card](https://www.anthropic.com/claude)
 
 ---
 
-## Conclusion
-
-Building complex systems with AI doesn't have to mean fighting context limits. The Long-Running Agent Pattern provides a structured approach that:
-
-- **Preserves context** across unlimited sessions
-- **Tracks progress** with precision
-- **Enables collaboration** between human and AI
-- **Produces audit trails** for compliance and learning
-- **Scales to any project size**
-
-Whether you're building a data warehouse, an ML pipeline, a full-stack application, or any complex system, this pattern can transform how you work with AI assistants.
-
-The future of software development isn't AI replacing developers—it's AI and developers working together more effectively. The Long-Running Agent Pattern is one step toward that future.
+*This article demonstrates how adopting established patterns from AI research can dramatically expand what's possible with AI-assisted development. The Long-Running Agents pattern isn't just theoretical—it's practical, proven, and ready for your next complex project.*
 
 ---
 
-*What complex projects have you struggled to build with AI? I'd love to hear your experiences in the comments.*
-
----
-
-### About the Author
-
-This project was built using Snowflake's Cortex Code CLI, demonstrating how AI-assisted development can scale to production-grade systems. The complete code and documentation are available on GitHub for you to learn from, adapt, and improve.
-
----
-
-**Tags:** `AI` `Snowflake` `Data Engineering` `Software Development` `Cortex` `LLM` `Productivity` `Tutorial`
-
----
-
-*If you found this helpful, consider following for more content on AI-assisted development and data engineering.*
+**Tags:** `Anthropic` `Claude` `AI Agents` `Snowflake` `Cortex Code` `Long-Running Agents` `Software Development` `LLM Patterns`
