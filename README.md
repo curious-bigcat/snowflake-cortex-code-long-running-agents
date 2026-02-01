@@ -1,685 +1,750 @@
-# Sales Analytics Platform
+# Long-Running Agents with Cortex Code CLI
 
-A comprehensive sales analytics solution built on Snowflake using the **Long-Running Agent Pattern** with **Cortex Code CLI**. This project demonstrates how to build production-grade data platforms iteratively across multiple sessions while maintaining context, progress, and quality.
+A comprehensive guide and reference implementation for building complex, multi-session projects using **Snowflake's Cortex Code CLI** with the **Long-Running Agent Pattern**.
+
+This repository demonstrates the pattern through a complete Sales Analytics Platform built across 10 sessions with 80 tracked features.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [What is Cortex Code CLI?](#what-is-cortex-code-cli)
-3. [What are Long-Running Agents?](#what-are-long-running-agents)
-4. [Why Use Long-Running Agents?](#why-use-long-running-agents)
-5. [Project Architecture](#project-architecture)
-6. [Implementation Approach](#implementation-approach)
-7. [Project Structure](#project-structure)
-8. [Phase-by-Phase Implementation](#phase-by-phase-implementation)
-9. [Progress Tracking System](#progress-tracking-system)
-10. [How to Resume Work](#how-to-resume-work)
-11. [Validation & Testing](#validation--testing)
-12. [Lessons Learned](#lessons-learned)
-13. [Quick Start](#quick-start)
-
----
-
-## Overview
-
-The Sales Analytics Platform is a full-stack analytics solution that includes:
-
-- **Snowflake Data Warehouse**: Multi-layer architecture (RAW → STAGING → MARTS)
-- **Dynamic Tables**: Real-time data transformation with 5-minute refresh
-- **Semantic Model**: Natural language queries via Cortex Analyst
-- **Streamlit Dashboard**: Interactive 6-page analytics application
-
-**Key Metrics:**
-- 80 features across 9 phases
-- 100,000 orders, 10,000 customers, 500 products, 50 sales reps
-- ~$394M total revenue over 2 years of data
-- Built across 10 sessions using the Long-Running Agent Pattern
+1. [What is Cortex Code CLI?](#what-is-cortex-code-cli)
+2. [Standard vs Long-Running Agent Approach](#standard-vs-long-running-agent-approach)
+3. [The Long-Running Agent Pattern](#the-long-running-agent-pattern)
+4. [Plan Mode vs Execution Mode](#plan-mode-vs-execution-mode)
+5. [How to Use This Pattern](#how-to-use-this-pattern)
+6. [Creating Your Own Specification File](#creating-your-own-specification-file)
+7. [Progress Tracking Files](#progress-tracking-files)
+8. [Session Workflow](#session-workflow)
+9. [Reference Implementation](#reference-implementation)
+10. [Best Practices](#best-practices)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## What is Cortex Code CLI?
 
-**Cortex Code CLI** is Snowflake's official command-line interface for AI-assisted software development. It provides an interactive environment where developers can collaborate with an AI agent to:
+**Cortex Code CLI** is Snowflake's AI-powered command-line interface for software development. It provides an interactive environment where developers collaborate with an AI agent to build applications, write SQL, and manage Snowflake resources.
 
-- Write, debug, and refactor code
-- Execute SQL queries against Snowflake
-- Create and modify files
-- Run shell commands
-- Build complete applications iteratively
+### Key Capabilities
 
-### Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **Multi-tool Access** | File operations, SQL execution, web search, shell commands |
-| **Context Awareness** | Understands your codebase, project structure, and history |
-| **Snowflake Integration** | Direct connection to Snowflake for SQL execution |
-| **Session Continuity** | Can resume work across multiple sessions |
-| **Progress Tracking** | Built-in todo list and task management |
+| Capability | Description |
+|------------|-------------|
+| **SQL Execution** | Run queries directly against Snowflake |
+| **File Operations** | Read, write, and edit code files |
+| **Shell Commands** | Execute git, npm, and other CLI tools |
+| **Web Search** | Research documentation and solutions |
+| **Multi-tool Orchestration** | Combine tools for complex workflows |
 
 ### Basic Usage
 
 ```bash
 # Start Cortex Code CLI
-cortex-code
+cortex
 
-# Common interactions
-> "Create a new Streamlit app for sales analytics"
-> "Fix the SQL error in my dashboard"
-> "Resume"  # Continue from previous session
+# Ask questions or give instructions
+> "Create a Snowflake table for customer data"
+> "Fix the error in my Python script"
+> "Explain this SQL query"
 ```
 
 ---
 
-## What are Long-Running Agents?
+## Standard vs Long-Running Agent Approach
 
-**Long-Running Agents** represent a pattern for executing complex, multi-session projects with AI assistance. Unlike simple one-off queries, long-running agents:
+### Standard Cortex Code CLI Approach
 
-1. **Persist context** across multiple sessions
-2. **Track progress** through structured files
-3. **Resume work** exactly where left off
-4. **Maintain quality** through validation checkpoints
+The standard approach works well for:
+- Single-session tasks
+- Small to medium projects (< 20 features)
+- Quick fixes and queries
+- Exploratory work
 
-### The Pattern
-
-```
-Session 1 → Progress File → Session 2 → Progress File → Session 3 → ...
-    ↓                           ↓                           ↓
- Features                   Features                    Features
-  1-10                       11-30                       31-50
-```
-
-### Key Components
-
-| Component | Purpose | File |
-|-----------|---------|------|
-| **Feature List** | Tracks all features with pass/fail status | `feature_list.json` |
-| **Progress Log** | Session history and changes made | `cortex-progress.md` |
-| **Specification** | Project requirements and architecture | `sales_analytics_platform.md` |
-
----
-
-## Why Use Long-Running Agents?
-
-### Problem: Context Window Limitations
-
-AI assistants have context window limits. For large projects:
-- Code exceeds context capacity
+**Limitations:**
+- Context window constraints (~100K tokens)
+- No persistence between sessions
+- Large projects exceed context capacity
 - Previous decisions are forgotten
-- Work must be repeated
-- Consistency is lost
 
-### Solution: Structured Progress Tracking
+### Long-Running Agent Approach
 
-Long-running agents solve this by:
-
-| Challenge | Solution |
-|-----------|----------|
-| Context limits | Progress files summarize state |
-| Lost decisions | Feature list captures outcomes |
-| Repeated work | Session logs track what's done |
-| Inconsistency | Validation checkpoints ensure quality |
-
-### Benefits
-
-1. **Scalability**: Build projects of any size
-2. **Reliability**: Never lose progress
-3. **Quality**: Systematic validation at each phase
-4. **Flexibility**: Pause and resume anytime
-5. **Transparency**: Full audit trail of changes
-
-### When to Use
-
-- Projects requiring 50+ features
-- Multi-day implementation efforts
+The Long-Running Agent pattern solves these limitations for:
+- Large projects (50-100+ features)
+- Multi-day/multi-week efforts
 - Complex systems with dependencies
-- Projects needing validation checkpoints
-- Team handoffs or documentation requirements
+- Projects requiring audit trails
+
+**Key Differences:**
+
+| Aspect | Standard Approach | Long-Running Agent |
+|--------|------------------|-------------------|
+| **Session Scope** | Complete in one session | Spans multiple sessions |
+| **Context** | In-memory only | Persisted to files |
+| **Progress** | Manual tracking | Structured JSON/Markdown |
+| **Resumability** | Start over each time | Continue exactly where left off |
+| **Audit Trail** | None | Complete session history |
+| **Scale** | 10-20 features | 50-100+ features |
+| **Consistency** | Varies by session | Enforced through validation |
 
 ---
 
-## Project Architecture
+## The Long-Running Agent Pattern
 
-### Data Flow
+### Core Concept
+
+The pattern breaks large projects into **incremental sessions**, each building on the previous through **structured progress files**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        SNOWFLAKE                                │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────┐    ┌──────────┐    ┌─────────┐    ┌──────────┐   │
-│  │   RAW   │ → │ STAGING  │ → │  MARTS  │ → │ SEMANTIC │   │
-│  │ Tables  │    │  Views   │    │ Dynamic │    │  Model   │   │
-│  └─────────┘    └──────────┘    │ Tables  │    └──────────┘   │
-│       ↑                         └─────────┘          ↓         │
-│   Source                             ↓          Cortex        │
-│    Data                         ┌─────────┐    Analyst        │
-│                                 │   Agg   │                   │
-│                                 │ Tables  │                   │
-│                                 └─────────┘                   │
-│                                      ↓                         │
-└──────────────────────────────────────┼─────────────────────────┘
-                                       ↓
-                            ┌─────────────────────┐
-                            │   STREAMLIT APP     │
-                            ├─────────────────────┤
-                            │ • Executive Dashboard│
-                            │ • Regional Analysis  │
-                            │ • Product Analysis   │
-                            │ • Sales Leaderboard  │
-                            │ • Customer Insights  │
-                            │ • Cortex Analyst     │
-                            └─────────────────────┘
+│  SESSION 1 (Initialization)                                      │
+│  ► Analyze specification document                                │
+│  ► Generate feature_list.json (50-80 features)                   │
+│  ► Create cortex-progress.md                                     │
+│  ► Implement foundational features                               │
+└─────────────────────────────────────────────────────────────────┘
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  SESSION 2+ (Incremental Progress)                               │
+│  ► Read progress files to restore context                        │
+│  ► Validate existing work still functions                        │
+│  ► Implement next incomplete feature                             │
+│  ► Test thoroughly                                               │
+│  ► Update progress files                                         │
+│  ► Leave clean state for next session                            │
+└─────────────────────────────────────────────────────────────────┘
+                              ▼
+                    (Repeat until complete)
 ```
 
-### Schema Design
+### Three Essential Components
 
-| Schema | Purpose | Objects |
-|--------|---------|---------|
-| **RAW** | Source data ingestion | CUSTOMERS, PRODUCTS, SALES_REPS, ORDERS |
-| **STAGING** | Data cleansing & validation | STG_* views with IS_VALID flags |
-| **MARTS** | Business-ready aggregations | FCT_ORDERS + 5 aggregation tables |
-| **SEMANTIC** | AI query interface | sales_model.yaml |
-
-### Dynamic Tables
-
-All mart tables use Snowflake Dynamic Tables with:
-- **Target Lag**: 5 minutes
-- **Refresh Mode**: Auto
-- **Warehouse**: SALES_ANALYTICS_WH (SMALL)
+| Component | Purpose | File |
+|-----------|---------|------|
+| **Specification** | Project requirements & agent instructions | `*_platform.md` |
+| **Feature List** | Tracks all features with pass/fail status | `feature_list.json` |
+| **Progress Log** | Session history and current state | `cortex-progress.md` |
 
 ---
 
-## Implementation Approach
+## Plan Mode vs Execution Mode
 
-### Phase-Based Development
+Cortex Code CLI operates in two modes that work together for long-running projects:
 
-The project was implemented in 9 phases, each with specific deliverables:
+### Plan Mode
+
+**Purpose:** Design implementation strategy before writing code.
+
+**When to Use:**
+- Starting a new project or phase
+- Complex features requiring architectural decisions
+- When multiple approaches are possible
+
+**How to Enter:**
+```bash
+# In Cortex Code CLI
+> /plan
+> Read @sales_analytics_platform.md and create an implementation plan
+```
+
+**What Happens:**
+1. Agent explores codebase and requirements
+2. Identifies existing patterns and constraints
+3. Drafts step-by-step implementation plan
+4. Presents plan for user approval
+5. User can refine or approve
+
+### Execution Mode
+
+**Purpose:** Implement the approved plan by writing code.
+
+**When to Use:**
+- After plan is approved
+- For well-defined tasks
+- Continuing previous work
+
+**How to Enter:**
+```bash
+# After plan approval, agent automatically exits to execution
+# Or start directly for continuation:
+> resume
+```
+
+**What Happens:**
+1. Agent reads progress files
+2. Identifies next incomplete feature
+3. Implements feature completely
+4. Tests and validates
+5. Updates progress files
+
+### Plan + Execution Workflow
 
 ```
-Phase 1: Infrastructure     → Database, Schemas, Warehouse
-Phase 2: Raw Data          → Tables + Sample Data (100K orders)
-Phase 3: Staging           → Cleansing Views + Quality Flags
-Phase 4: Marts Fact        → FCT_ORDERS Dynamic Table
-Phase 5: Marts Aggregation → 5 Aggregation Dynamic Tables
-Phase 6: Semantic Model    → Cortex Analyst YAML
-Phase 7: Streamlit Setup   → App Structure + Navigation
-Phase 8: Streamlit Pages   → 6 Interactive Dashboards
-Phase 9: Polish            → Error Handling + UX
-```
-
-### Priority System
-
-Features were tagged with priorities:
-- **P1 (Priority 1)**: Core functionality - must complete
-- **P2 (Priority 2)**: Enhancements - nice to have
-
-This allowed the project to reach "usable" state quickly while deferring optimizations.
-
-### Validation Checkpoints
-
-Each phase ended with validation:
-
-```sql
--- Example: Phase 5 Validation
-SELECT 
-    'FCT_ORDERS' as table_name, 
-    SUM(NET_AMOUNT) as revenue 
-FROM MARTS.FCT_ORDERS
-UNION ALL
-SELECT 'DAILY_SALES', SUM(REVENUE) FROM MARTS.DAILY_SALES;
--- Both should equal ~$394M
+┌──────────────────┐     ┌───────────────────┐     ┌──────────────────┐
+│   PLAN MODE      │     │   USER REVIEW     │     │ EXECUTION MODE   │
+│                  │     │                   │     │                  │
+│ • Read specs     │────▶│ • Approve plan    │────▶│ • Write code     │
+│ • Analyze reqs   │     │ • Request changes │     │ • Run tests      │
+│ • Design approach│     │ • Ask questions   │     │ • Update progress│
+│ • Create plan    │     │                   │     │ • Validate       │
+└──────────────────┘     └───────────────────┘     └──────────────────┘
 ```
 
 ---
 
-## Project Structure
+## How to Use This Pattern
 
-```
-longrunning_agents/
-├── README.md                      # This file
-├── sales_analytics_platform.md   # Project specification
-├── feature_list.json             # Feature tracking (80 features)
-├── cortex-progress.md            # Session history log
-├── snowflake_setup.sql           # All Snowflake DDL/DML
-├── sales_model.yaml              # Cortex Analyst semantic model
-│
-└── streamlit_app/                # Streamlit application
-    ├── streamlit_app.py          # Main app with navigation
-    ├── .streamlit/
-    │   └── secrets.toml          # Snowflake connection config
-    └── app_pages/
-        ├── executive_dashboard.py # KPIs and trends
-        ├── regional_analysis.py   # Regional breakdown
-        ├── product_analysis.py    # Category/product metrics
-        ├── sales_rep_leaderboard.py # Rep rankings
-        ├── customer_insights.py   # Customer segments
-        └── cortex_analyst.py      # Natural language queries
+### Step 1: Create Specification Document
+
+Create a `<project_name>_platform.md` file following this structure:
+
+```markdown
+# Project Name - Long-Running Project Specification
+
+## How to Execute This Project
+[Instructions for the agent]
+
+# PART 1: LONG-RUNNING AGENT PATTERN
+[Pattern rules and workflow]
+
+# PART 2: PROJECT REQUIREMENTS
+[Business requirements, technical specs, feature breakdown]
 ```
 
-### Key Files Explained
+See [sales_analytics_platform.md](sales_analytics_platform.md) for a complete example.
 
-| File | Purpose |
-|------|---------|
-| `feature_list.json` | JSON array of 80 features with id, title, priority, passes, tested_at, notes |
-| `cortex-progress.md` | Markdown log of each session: what was done, files changed, issues encountered |
-| `snowflake_setup.sql` | Complete SQL to recreate all Snowflake objects from scratch |
-| `sales_model.yaml` | Semantic model defining dimensions, measures, and time dimensions for Cortex Analyst |
+### Step 2: Start First Session (Plan Mode)
 
----
+```bash
+# Start Cortex Code CLI
+cortex
 
-## Phase-by-Phase Implementation
-
-### Phase 1: Infrastructure (Session 1)
-
-**Features**: #1-#10 (7 P1, 3 P2)
-
-```sql
--- Created database and schemas
-CREATE DATABASE SALES_ANALYTICS_DB;
-CREATE SCHEMA RAW;
-CREATE SCHEMA STAGING;
-CREATE SCHEMA MARTS;
-CREATE SCHEMA SEMANTIC;
-
--- Created warehouse
-CREATE WAREHOUSE SALES_ANALYTICS_WH
-    WAREHOUSE_SIZE = 'SMALL'
-    AUTO_SUSPEND = 120;
+# Enter plan mode with specification
+> /plan
+> Read @sales_analytics_platform.md and execute this long-running project 
+> following the agent pattern defined in the document.
 ```
 
-**Outcome**: Foundation ready for data loading
+The agent will:
+1. Analyze the specification
+2. Generate `feature_list.json` with 50-80 features
+3. Create `cortex-progress.md`
+4. Implement initial features
+5. Update progress files
 
----
+### Step 3: Continue in Subsequent Sessions
 
-### Phase 2: Raw Data (Session 2)
+```bash
+# Option 1: Use continue flag
+cortex --continue
 
-**Features**: #11-#20 (10 P1)
+# Option 2: Start fresh and reference progress
+cortex
+> resume
 
-Created and populated 4 tables:
-
-| Table | Rows | Key Attributes |
-|-------|------|----------------|
-| CUSTOMERS | 10,000 | Segment distribution: Enterprise 10%, SMB 30%, Consumer 60% |
-| PRODUCTS | 500 | 10 categories, prices $10-$5,000 |
-| SALES_REPS | 50 | 4 regions: North, South, East, West |
-| ORDERS | 100,000 | 2 years of data, 10% with discounts |
-
-**Outcome**: Raw data layer complete with realistic sample data
-
----
-
-### Phase 3: Staging (Session 3)
-
-**Features**: #21-#30 (8 P1, 2 P2)
-
-Created staging views with:
-- Data type standardization
-- Calculated fields (NET_AMOUNT, GROSS_AMOUNT)
-- Date part extraction (ORDER_WEEK, ORDER_MONTH, etc.)
-- Data quality flags (IS_VALID)
-
-```sql
-CREATE VIEW STAGING.STG_ORDERS AS
-SELECT 
-    *,
-    QUANTITY * UNIT_PRICE * (1 - DISCOUNT_PCT) AS NET_AMOUNT,
-    DATE_TRUNC('month', ORDER_DATE) AS ORDER_MONTH,
-    CASE WHEN ... THEN TRUE ELSE FALSE END AS IS_VALID
-FROM RAW.ORDERS;
+# Option 3: Explicit continuation
+> /plan
+> Continue the project. Read feature_list.json and cortex-progress.md 
+> to understand current state, then implement the next incomplete feature.
 ```
 
-**Outcome**: Clean, validated data ready for mart layer
+### Step 4: Repeat Until Complete
+
+Each session:
+1. Reads progress files
+2. Validates existing work
+3. Implements 1-3 features
+4. Updates progress
+5. Ends cleanly
 
 ---
 
-### Phase 4: Marts Fact Table (Session 4)
+## Creating Your Own Specification File
 
-**Features**: #31-#40 (10 P1)
+### Template Structure
 
-Created FCT_ORDERS Dynamic Table joining all dimensions:
+```markdown
+# [Project Name] - Long-Running Project Specification
 
-```sql
-CREATE DYNAMIC TABLE MARTS.FCT_ORDERS
-    TARGET_LAG = '5 minutes'
-    WAREHOUSE = SALES_ANALYTICS_WH
-AS
-SELECT 
-    o.*, c.CUSTOMER_NAME, c.SEGMENT,
-    p.PRODUCT_NAME, p.CATEGORY,
-    r.REP_NAME, r.REGION
-FROM STAGING.STG_ORDERS o
-LEFT JOIN STAGING.STG_CUSTOMERS c ON ...
-LEFT JOIN STAGING.STG_PRODUCTS p ON ...
-LEFT JOIN STAGING.STG_SALES_REPS r ON ...;
+## How to Execute This Project
+
+This project uses the **Long-Running Agents Pattern** for complex, 
+multi-session work.
+
+### Starting the Project (First Session)
+\`\`\`
+/plan
+Read @[filename].md and execute this long-running project following 
+the agent pattern defined in the document.
+\`\`\`
+
+### Continuing the Project (Subsequent Sessions)
+\`\`\`
+resume
+\`\`\`
+
+---
+
+# PART 1: LONG-RUNNING AGENT PATTERN
+
+## Overview
+[Explain the incremental approach]
+
+## Critical Rules
+1. **ONE FEATURE AT A TIME** - Never implement multiple features at once
+2. **TEST EVERYTHING** - Features must be verified before marking complete
+3. **DOCUMENT THOROUGHLY** - Next session has no memory of current work
+4. **NEVER BREAK EXISTING** - Validate before adding new features
+5. **LEAVE CLEAN STATE** - No half-implemented code
+
+## Required Artifacts
+
+### 1. feature_list.json
+[JSON structure with id, phase, priority, title, passes, tested_at, notes]
+
+### 2. cortex-progress.md
+[Markdown structure with status, session history, objects created]
+
+## Session Workflow
+[Step-by-step workflow for each session]
+
+---
+
+# PART 2: PROJECT REQUIREMENTS
+
+## Business Context
+[Goals, users, key questions to answer]
+
+## Functional Requirements
+[FR-1, FR-2, etc. with checkboxes]
+
+## Technical Requirements
+[Architecture, schemas, configurations]
+
+## Feature Breakdown
+[Phase 1: Features 1-10, Phase 2: Features 11-20, etc.]
+
+## Validation Checkpoints
+[SQL queries and tests for each phase]
+
+## Success Criteria
+[Definition of done]
 ```
 
-**Validation**: 0 NULL values in dimension joins, total revenue = $393.96M
+### Key Sections Explained
 
-**Outcome**: Central fact table with all dimensions denormalized
+#### Critical Rules Section
+```markdown
+## Critical Rules
 
----
-
-### Phase 5: Aggregation Tables (Session 5)
-
-**Features**: #41-#50 (8 P1, 2 P2)
-
-Created 5 aggregation Dynamic Tables:
-
-| Table | Grain | Rows | Purpose |
-|-------|-------|------|---------|
-| DAILY_SALES | Day | 2,920 | Time series trends |
-| SALES_BY_REGION | Region + Month | 96 | Geographic analysis |
-| SALES_BY_PRODUCT | Product + Month | 1,500 | Product performance |
-| SALES_BY_CUSTOMER | Customer | 9,999 | Customer value |
-| SALES_BY_REP | Rep + Month | 150 | Sales performance |
-
-**Validation**: All tables sum to $393.96M baseline
-
-**Outcome**: Pre-aggregated tables for fast dashboard queries
-
----
-
-### Phase 6: Semantic Model (Session 6)
-
-**Features**: #51-#60 (9 P1, 1 P2)
-
-Created sales_model.yaml with:
-- **15 Dimensions**: customer, product, rep, region, segment, industry, etc.
-- **12 Measures**: revenue, gross_revenue, order_count, units_sold, AOV, etc.
-- **5 Time Dimensions**: date, week, month, quarter, year
-
-Tested with Cortex Analyst:
-```
-Q: "What was total revenue last month?"
-A: December 2025: $16.3M from 4,045 orders
-
-Q: "Top 10 products by revenue"
-A: Product_0004 (SPORTS) leads at $6.08M
-
-Q: "Sales by region"
-A: North $102.3M, South $101.6M, West $96M, East $94.1M
+1. **ONE FEATURE AT A TIME** - Focus prevents errors and ensures quality
+2. **TEST EVERYTHING** - A feature is not done until verified
+3. **DOCUMENT THOROUGHLY** - The next session has NO memory
+4. **NEVER BREAK EXISTING** - Always validate before adding
+5. **LEAVE CLEAN STATE** - No half-implemented code
 ```
 
-**Outcome**: Natural language query interface ready
+#### Feature Breakdown Section
+```markdown
+## Feature Breakdown
 
----
+### Phase 1: Infrastructure (Features 1-10)
+- Create database
+- Create schemas
+- Create warehouse
+- Verify connectivity
 
-### Phase 7 & 8: Streamlit Application (Session 7)
+### Phase 2: Data Layer (Features 11-20)
+- Create source tables
+- Load sample data
+- Create staging views
+- Add data quality checks
 
-**Features**: #61-#75 (14 P1, 1 P2)
-
-Built 6-page Streamlit application:
-
-1. **Executive Dashboard**: KPIs, revenue trends, regional breakdown
-2. **Regional Analysis**: Region comparison, monthly trends
-3. **Product Analysis**: Category performance, top products
-4. **Sales Rep Leaderboard**: Rankings, individual performance
-5. **Customer Insights**: Segment analysis, top customers
-6. **Cortex Analyst**: Natural language query interface
-
-Key patterns:
-```python
-# Connection handling
-conn = st.connection("snowflake")
-
-# Caching with TTL
-@st.cache_data(ttl=timedelta(minutes=5))
-def get_data(_conn, start, end):
-    return _conn.query(sql)
-
-# Session state for filters
-st.session_state.date_start = start_date
-st.session_state.date_end = end_date
+### Phase 3: Business Logic (Features 21-30)
+[Continue pattern...]
 ```
 
-**Outcome**: Fully functional interactive dashboard
+#### Validation Checkpoints Section
+```markdown
+## Validation Checkpoints
+
+### After Phase 2:
+\`\`\`sql
+SELECT COUNT(*) FROM schema.table;
+-- Expected: ~10,000 rows
+\`\`\`
+
+### After Phase 3:
+\`\`\`sql
+SELECT SUM(amount) FROM schema.aggregated_table;
+-- Expected: Matches source total
+\`\`\`
+```
 
 ---
 
-### Phase 9: Polish (Sessions 8-10)
+## Progress Tracking Files
 
-**Features**: #76-#80 (3 P1, 2 P2)
+### feature_list.json
 
-Added production-ready features:
-- **Error handling**: try/except with st.error() on all pages
-- **Loading states**: st.spinner() for user feedback
-- **Drill-down**: st.expander() for detailed data
-- **Documentation**: About section in sidebar
-- **Data validation**: Date range checks, empty state handling
-
-**Bug Fixes** (Session 10):
-- Fixed column name mismatches (MONTH → ORDER_MONTH)
-- Updated queries to use FCT_ORDERS directly
-- Added type conversion for Decimal columns
-
-**Outcome**: Production-ready application
-
----
-
-## Progress Tracking System
-
-### feature_list.json Structure
+Tracks every feature with status:
 
 ```json
 {
-  "project": "Sales Analytics Platform",
+  "project": "Your Project Name",
+  "created": "2024-01-15T10:00:00Z",
   "total_features": 80,
   "features": [
     {
       "id": 1,
       "phase": "infrastructure",
       "priority": 1,
-      "title": "Create database SALES_ANALYTICS_DB",
-      "description": "Create the main database...",
-      "acceptance_criteria": ["Database exists", "Role has privileges"],
+      "title": "Create database",
+      "description": "Create main database for the platform",
+      "acceptance_criteria": [
+        "Database exists",
+        "Current role has access"
+      ],
       "passes": true,
-      "tested_at": "2026-01-31T06:26:22Z",
-      "notes": "Database created successfully"
+      "tested_at": "2024-01-15T10:30:00Z",
+      "notes": "Created successfully"
+    },
+    {
+      "id": 2,
+      "phase": "infrastructure", 
+      "priority": 1,
+      "title": "Create schemas",
+      "passes": false,
+      "tested_at": null,
+      "notes": ""
     }
   ]
 }
 ```
 
-### cortex-progress.md Structure
+**Field Definitions:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | number | Unique feature identifier |
+| `phase` | string | Project phase (infrastructure, data, etc.) |
+| `priority` | number | 1 = must have, 2 = nice to have |
+| `title` | string | Short feature name |
+| `description` | string | Detailed description |
+| `acceptance_criteria` | array | Conditions for completion |
+| `passes` | boolean | Whether feature is complete |
+| `tested_at` | string | ISO timestamp of last test |
+| `notes` | string | Implementation notes |
+
+### cortex-progress.md
+
+Session history and current state:
 
 ```markdown
+# Project Name - Progress Log
+
 ## Quick Status
 - **Total Features**: 80
-- **Completed**: 72
-- **Remaining**: 8 (all Priority 2)
+- **Completed**: 45
+- **Remaining**: 35
+- **Last Updated**: 2024-01-20T15:30:00Z
 
 ## Session History
 
-### Session 10 - 2026-02-01
-- **Type**: Bug Fix
-- **Issue**: SQL compilation error - invalid identifier 'MONTH'
-- **Files Fixed**: executive_dashboard.py, regional_analysis.py
-- **Status**: Bug fixed
+### Session 5 - 2024-01-20
+- **Type**: Data Layer Implementation
+- **Features Completed**: #21, #22, #23
+- **Objects Created**: 
+  - VIEW: STAGING.STG_ORDERS
+  - VIEW: STAGING.STG_CUSTOMERS
+- **Issues**: None
+- **Next**: Implement feature #24 (Create fact table)
 
-### Session 9 - 2026-02-01
-- **Type**: Priority 2 Enhancements
-- **Features Completed**: #74, #78, #79
-...
+### Session 4 - 2024-01-19
+[Previous session details...]
+
+---
+
+## Current Objects
+
+| Type | Name | Schema | Status |
+|------|------|--------|--------|
+| DATABASE | MY_DB | - | ✓ |
+| SCHEMA | RAW | MY_DB | ✓ |
+| TABLE | ORDERS | RAW | ✓ (100K rows) |
+
+## Known Issues / Blockers
+- Issue #1: [Description and workaround]
+
+## Validation Queries
+\`\`\`sql
+-- Verify row counts
+SELECT COUNT(*) FROM MY_DB.RAW.ORDERS;
+\`\`\`
 ```
 
 ---
 
-## How to Resume Work
+## Session Workflow
 
-### Starting a New Session
+### Starting a Session
 
-When returning to the project:
-
-1. **Say "resume"** to Cortex Code CLI
-2. The agent reads `cortex-progress.md` and `feature_list.json`
-3. Context is reconstructed from progress files
-4. Work continues from the last checkpoint
-
-### What Gets Preserved
-
-| Information | Storage Location |
-|-------------|------------------|
-| Completed features | feature_list.json (passes: true) |
-| Session history | cortex-progress.md |
-| Snowflake objects | Database (persistent) |
-| Code files | Local filesystem |
-| Configuration | secrets.toml, SQL files |
-
-### Best Practices
-
-1. **Update progress files** after each significant change
-2. **Run validation queries** at phase boundaries
-3. **Document blockers** in notes field
-4. **Mark features complete** immediately when done
-
----
-
-## Validation & Testing
-
-### Row Count Validation
-
-```sql
-SELECT 'RAW.ORDERS' as tbl, COUNT(*) FROM RAW.ORDERS
-UNION ALL SELECT 'MARTS.FCT_ORDERS', COUNT(*) FROM MARTS.FCT_ORDERS;
--- Both should be 100,000
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. READ PROGRESS FILES                                       │
+│    • cortex-progress.md - What was done, what's next        │
+│    • feature_list.json - Find next incomplete feature       │
+├─────────────────────────────────────────────────────────────┤
+│ 2. VALIDATE EXISTING WORK                                    │
+│    • Run validation queries                                  │
+│    • Verify objects exist                                    │
+│    • Check for any regressions                              │
+├─────────────────────────────────────────────────────────────┤
+│ 3. SELECT NEXT FEATURE                                       │
+│    • Lowest ID where passes: false                          │
+│    • Respect phase dependencies                              │
+├─────────────────────────────────────────────────────────────┤
+│ 4. IMPLEMENT FEATURE                                         │
+│    • Write code/SQL                                          │
+│    • Follow existing patterns                                │
+│    • Handle edge cases                                       │
+├─────────────────────────────────────────────────────────────┤
+│ 5. TEST FEATURE                                              │
+│    • Run acceptance criteria                                 │
+│    • Verify with queries                                     │
+│    • Check for side effects                                  │
+├─────────────────────────────────────────────────────────────┤
+│ 6. UPDATE PROGRESS                                           │
+│    • Mark feature passes: true                              │
+│    • Update cortex-progress.md                              │
+│    • Document any issues                                     │
+├─────────────────────────────────────────────────────────────┤
+│ 7. END CLEANLY                                               │
+│    • Note next steps                                         │
+│    • Ensure no broken state                                  │
+│    • Commit if using git                                     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Revenue Baseline Validation
+### Handling Context Exhaustion
 
-```sql
-SELECT SUM(NET_AMOUNT) as total_revenue FROM MARTS.FCT_ORDERS;
--- Should be ~$393,961,464.45
-```
+If you run out of context mid-session:
 
-### Dynamic Table Status
+1. **Immediately update progress files** with current state
+2. **Document exactly where you stopped**
+3. **Note any partial work** that needs completion
+4. **Start new session** with `resume`
 
-```sql
-SHOW DYNAMIC TABLES IN SCHEMA MARTS;
--- All should show SCHEDULING_STATE = 'ACTIVE'
-```
-
-### Streamlit Testing
-
-```bash
-cd streamlit_app
-streamlit run streamlit_app.py
-# Verify all 6 pages load without errors
-```
-
----
-
-## Lessons Learned
-
-### What Worked Well
-
-1. **Phase-based approach**: Clear milestones and validation points
-2. **Priority system**: P1/P2 allowed shipping core functionality first
-3. **Progress files**: Essential for multi-session continuity
-4. **Dynamic Tables**: Simplified ETL with auto-refresh
-5. **FCT_ORDERS as single source**: Consistent data across all pages
-
-### Challenges Encountered
-
-| Challenge | Solution |
-|-----------|----------|
-| Connection timeouts | Focus on code-only changes when Snowflake unavailable |
-| Column name mismatches | Query FCT_ORDERS directly with known schema |
-| Decimal type handling | Explicit .astype(float) conversion |
-| File edit conflicts | Sequential edits instead of parallel |
-
-### Recommendations
-
-1. **Document schema early**: Create DDL file before building queries
-2. **Test queries independently**: Validate SQL before embedding in app
-3. **Use explicit type casts**: Snowflake Decimals need conversion in Python
-4. **Keep progress updated**: Update files immediately, not in batches
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Snowflake account with ACCOUNTADMIN or equivalent
-- Python 3.8+ with streamlit, snowflake-connector-python
-- Cortex Code CLI installed
-
-### Setup Steps
-
-1. **Create Snowflake Objects**
-   ```bash
-   # In Snowflake worksheet or SnowSQL
-   !source snowflake_setup.sql
-   ```
-
-2. **Upload Semantic Model**
-   ```sql
-   PUT file://./sales_model.yaml @SEMANTIC.SEMANTIC_MODELS AUTO_COMPRESS=FALSE;
-   ```
-
-3. **Configure Streamlit**
-   ```bash
-   # Edit streamlit_app/.streamlit/secrets.toml
-   [connections.snowflake]
-   account = "your-account"
-   user = "your-user"
-   password = "your-password"
-   warehouse = "SALES_ANALYTICS_WH"
-   database = "SALES_ANALYTICS_DB"
-   schema = "MARTS"
-   ```
-
-4. **Run Application**
-   ```bash
-   cd streamlit_app
-   streamlit run streamlit_app.py
-   ```
-
-### Resuming Development
-
-```bash
-# Start Cortex Code CLI
-cortex-code
-
-# In the CLI, say:
-> resume
-
-# The agent will read progress files and continue where you left off
+```markdown
+### Session 7 - 2024-01-22 (PARTIAL)
+- **Type**: Feature Implementation
+- **Features Attempted**: #35
+- **Status**: INCOMPLETE - Context exhausted
+- **Partial Work**: 
+  - Created table structure
+  - Did NOT populate data
+- **Resume Point**: Continue #35 - add INSERT statement
 ```
 
 ---
 
-## Project Status
+## Reference Implementation
+
+This repository contains a complete Sales Analytics Platform demonstrating the pattern:
+
+### Project Statistics
 
 | Metric | Value |
 |--------|-------|
 | Total Features | 80 |
-| Completed | 72 (90%) |
-| Priority 1 Complete | 100% |
-| Priority 2 Complete | 37.5% |
 | Sessions | 10 |
+| Completion | 90% (72/80) |
+| P1 Features | 100% complete |
 | Snowflake Objects | 16 |
 | Streamlit Pages | 6 |
 
-### Remaining P2 Features
+### File Structure
 
-- #8: Create stage for semantic model
-- #9: Set default warehouse context
-- #10: Infrastructure validation checkpoint
-- #27: Add data quality flags to staging views
-- #28: Create data quality summary view
-- #47: Add running totals
-- #48: Add moving averages
-- #59: Add verified queries to semantic model
+```
+├── README.md                      # This guide
+├── sales_analytics_platform.md   # Specification document (template)
+├── feature_list.json             # Feature tracking
+├── cortex-progress.md            # Session history
+├── snowflake_setup.sql           # All Snowflake DDL/DML
+├── sales_model.yaml              # Cortex Analyst semantic model
+│
+└── streamlit_app/                # Streamlit application
+    ├── streamlit_app.py
+    └── app_pages/
+        ├── executive_dashboard.py
+        ├── regional_analysis.py
+        ├── product_analysis.py
+        ├── sales_rep_leaderboard.py
+        ├── customer_insights.py
+        └── cortex_analyst.py
+```
+
+### Quick Start
+
+```bash
+# Clone repository
+git clone https://github.com/curious-bigcat/snowflake-cortex-code-long-running-agents.git
+cd snowflake-cortex-code-long-running-agents
+
+# Review the specification
+cat sales_analytics_platform.md
+
+# Start your own project using this as a template
+cp sales_analytics_platform.md my_project_platform.md
+# Edit my_project_platform.md with your requirements
+
+# Start Cortex Code CLI
+cortex
+
+# Begin with plan mode
+> /plan
+> Read @my_project_platform.md and execute this long-running project
+```
+
+---
+
+## Best Practices
+
+### Do's
+
+| Practice | Why |
+|----------|-----|
+| ✅ One feature per session | Reduces errors, ensures quality |
+| ✅ Test before marking complete | Prevents false progress |
+| ✅ Update progress immediately | Maintains accurate state |
+| ✅ Document blockers | Helps future sessions |
+| ✅ Use validation checkpoints | Catches regressions early |
+| ✅ Follow phase order | Respects dependencies |
+
+### Don'ts
+
+| Anti-Pattern | Why It's Bad |
+|--------------|--------------|
+| ❌ Skip testing | Creates technical debt |
+| ❌ Implement multiple features | Increases error risk |
+| ❌ Forget to update progress | Loses work tracking |
+| ❌ Leave broken state | Blocks next session |
+| ❌ Skip ahead in phases | Breaks dependencies |
+| ❌ Delete features from list | Loses audit trail |
+
+### Priority System
+
+Use P1/P2 to manage scope:
+
+- **P1 (Priority 1)**: Core functionality - must complete for MVP
+- **P2 (Priority 2)**: Enhancements - implement after P1 complete
+
+This allows shipping a working product while tracking desired improvements.
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### "Context exhausted mid-feature"
+
+**Solution:**
+1. Update progress files immediately
+2. Document partial work in notes
+3. Start new session with `resume`
+4. Agent will read state and continue
+
+#### "Feature marked complete but doesn't work"
+
+**Solution:**
+1. Set `passes: false` in feature_list.json
+2. Add notes explaining the issue
+3. Re-implement in next session
+4. Run validation queries before marking complete
+
+#### "Lost track of what's done"
+
+**Solution:**
+1. Run validation queries from specification
+2. Check cortex-progress.md for object list
+3. Query Snowflake: `SHOW TABLES IN DATABASE`
+4. Reconcile with feature_list.json
+
+#### "Snowflake connection issues"
+
+**Solution:**
+1. Document in cortex-progress.md under "Known Issues"
+2. Focus on code-only work (no SQL execution)
+3. Queue SQL work for when connection restored
+4. Note specific features blocked
+
+### Recovery Commands
+
+```sql
+-- Check what exists in Snowflake
+SHOW DATABASES LIKE 'MY_PROJECT%';
+SHOW SCHEMAS IN DATABASE MY_PROJECT_DB;
+SHOW TABLES IN SCHEMA MY_PROJECT_DB.MARTS;
+SHOW DYNAMIC TABLES IN SCHEMA MY_PROJECT_DB.MARTS;
+
+-- Verify row counts
+SELECT 'TABLE1' as name, COUNT(*) as rows FROM MY_PROJECT_DB.RAW.TABLE1
+UNION ALL SELECT 'TABLE2', COUNT(*) FROM MY_PROJECT_DB.RAW.TABLE2;
+```
+
+---
+
+## Adapting for Your Project
+
+### Step-by-Step
+
+1. **Copy the specification template**
+   ```bash
+   cp sales_analytics_platform.md my_project_platform.md
+   ```
+
+2. **Update Part 1** - Keep the pattern, update project name
+
+3. **Rewrite Part 2** - Your requirements:
+   - Business context
+   - Functional requirements
+   - Technical requirements
+   - Feature breakdown (aim for 50-80 features)
+   - Validation checkpoints
+
+4. **Start with Cortex Code CLI**
+   ```bash
+   cortex
+   > /plan
+   > Read @my_project_platform.md and execute this long-running project
+   ```
+
+5. **Continue sessions** with `resume`
+
+### Example Project Types
+
+This pattern works for:
+
+- **Data Warehouses**: ETL pipelines, dimensional models
+- **Analytics Platforms**: Dashboards, reports, semantic models
+- **Data Applications**: Streamlit/Gradio apps with Snowflake backend
+- **ML Pipelines**: Feature engineering, model training workflows
+- **Migration Projects**: Legacy system to Snowflake migrations
 
 ---
 
 ## License
 
-This project was created as a demonstration of the Long-Running Agent Pattern with Cortex Code CLI.
+MIT License - Feel free to use this pattern for your projects.
+
+---
+
+## Resources
+
+- [Cortex Code CLI Documentation](https://docs.snowflake.com/user-guide/snowflake-cortex/cortex-agents)
+- [Snowflake Dynamic Tables](https://docs.snowflake.com/en/user-guide/dynamic-tables-intro)
+- [Cortex Analyst](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst)
+- [Streamlit in Snowflake](https://docs.snowflake.com/en/developer-guide/streamlit/about-streamlit)
 
 ---
 
